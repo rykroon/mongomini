@@ -1,6 +1,7 @@
 from mongomini.config import Config
 from mongomini.iters import ModelIterable
 
+
 class DocumentMetaclass(type):
 
     def __new__(cls, name, bases, attrs):
