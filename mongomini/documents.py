@@ -1,5 +1,5 @@
 from mongomini.config import Config
-
+from mongomini.iters import ModelIterable
 
 class DocumentMetaclass(type):
 
@@ -54,8 +54,9 @@ class Document(metaclass=DocumentMetaclass):
         return hash(self.pk)
 
     @classmethod
-    def find(self, **kwargs):
-        return self._config.collection.find(**kwargs)
+    def find(cls, **kwargs):
+        cursor = cls._config.collection.find(**kwargs)
+        return ModelIterable(cursor, cls)
 
     @property
     def pk(self):
