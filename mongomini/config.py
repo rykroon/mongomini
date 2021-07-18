@@ -1,5 +1,9 @@
 
 
+class ImproperlyConfigured(Exception):
+    pass
+
+
 class Config:
     def __init__(self, attrs):
         self.abstract = attrs.get('asbtract', False)
@@ -14,9 +18,16 @@ class Config:
         self.validate()
 
     def validate(self):
-        assert isinstance(self.abstract, bool)
-        assert isinstance(self.fields, set)
+        if not isinstance(self.abstract, bool):
+            raise ImproperlyConfigured
+
+        if not isinstance(self.fields, set):
+            raise ImproperlyConfigured
+
         for f in self.fields:
-            assert isinstance(f, str)
-            assert f.isidentifier()
+            if not isinstance(f, str):
+                raise ImproperlyConfigured
+            
+            if not f.isidentifier():
+                raise ImproperlyConfigured
 
