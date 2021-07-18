@@ -6,7 +6,7 @@ class ImproperlyConfigured(Exception):
 
 class Config:
     def __init__(self, attrs):
-        self.abstract = attrs.get('asbtract', False)
+        self.abstract = attrs.get('abstract', False)
         self.fields = attrs.get('fields', set())
         self.db = attrs.get('db')
         self.collection_name = attrs.get('collection_name')
