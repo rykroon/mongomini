@@ -1,3 +1,4 @@
+from typing import Type
 from mongomini.config import Config
 from mongomini.iters import ModelIterable
 
@@ -35,6 +36,9 @@ class DocumentMetaclass(type):
 class Document(metaclass=DocumentMetaclass):
 
     def __new__(cls, *args, **kwargs):
+        if cls._config.abstract:
+            raise TypeError('Abstract documents cannot be instantiated.')
+        
         instance = super().__new__(cls)
         for f in cls._config.fields:
             setattr(instance, f, kwargs.get(f))
