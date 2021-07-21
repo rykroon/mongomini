@@ -1,8 +1,13 @@
+from datetime import date
 from setuptools import setup, find_packages
+
+# python setup.py bdist_wheel
+
+version = date.today().isoformat().replace('-', '.')
 
 setup(
     name='mongomini',
-    version='1.0.0',
+    version=version,
     author='Ryan Kroon',
     author_email='rykroon.tech@gmail.com',
     packages=find_packages(),
