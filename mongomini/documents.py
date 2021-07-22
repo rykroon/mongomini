@@ -1,4 +1,3 @@
-from typing import Type
 from mongomini.config import Config
 from mongomini.iters import ModelIterable
 
