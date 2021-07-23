@@ -54,7 +54,7 @@ class Document(metaclass=DocumentMetaclass):
 
     def __hash__(self):
         if self.pk is None:
-            raise TypeError
+            raise TypeError("Instances without an _id value are unhashable.")
         return hash(self.pk)
 
     @classmethod
@@ -104,4 +104,8 @@ class Document(metaclass=DocumentMetaclass):
             self._update()
 
     def delete(self):
+        if self.pk is None:
+            raise AssertionError("{} object can't be deleted because its _id attribute is set to None.".format(
+                self.__class__.__name__
+            ))
         self._config.collection.delete_one({'_id': self.pk})
