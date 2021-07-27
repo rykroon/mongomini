@@ -6,7 +6,7 @@ class DocumentMetaclass(type):
 
     def __new__(cls, name, bases, attrs):
         config = attrs.pop('Config', None)
-        config_attrs = dict(config.__dict__) if config else {}
+        config_attrs = {}
 
         parent_db = None
         parent_fields = set()
@@ -16,13 +16,10 @@ class DocumentMetaclass(type):
                 parent_db = p._config.db
                 parent_fields = parent_fields.union(p._config.fields)
 
-        if not config_attrs.get('db'):
-            config_attrs['db'] = parent_db
+        config_attrs['db'] = getattr(config, 'db', parent_db)
+        config_attrs['collection_name'] = getattr(config, 'collection_name', name.lower())
 
-        if not config_attrs.get('collection_name'):
-            config_attrs['collection_name'] = name.lower()
-
-        fields = set(config_attrs.get('fields', {}))
+        fields = set(getattr(config, 'fields', {}))
         fields = fields.union(parent_fields)
         fields.add('_id')
         config_attrs['fields'] = fields
