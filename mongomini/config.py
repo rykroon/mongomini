@@ -1,3 +1,4 @@
+from mongomini.indexes import Index
 
 
 class ImproperlyConfigured(Exception):
@@ -10,6 +11,7 @@ class Config:
         self.fields = attrs.get('fields', set())
         self.db = attrs.get('db')
         self.collection_name = attrs.get('collection_name')
+        self.indexes = attrs.get('indexes', [])
 
         self.collection = None
         if self.db and not self.abstract:
@@ -29,5 +31,9 @@ class Config:
                 raise ImproperlyConfigured
             
             if not f.isidentifier():
+                raise ImproperlyConfigured
+
+        for idx in self.indexes:
+            if not isinstance(idx, Index):
                 raise ImproperlyConfigured
 

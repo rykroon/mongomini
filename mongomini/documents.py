@@ -10,11 +10,13 @@ class DocumentMetaclass(type):
 
         parent_db = None
         parent_fields = set()
+        parent_indexes = []
 
         for p in reversed(bases):
             if isinstance(p, DocumentMetaclass):
                 parent_db = p._config.db
                 parent_fields = parent_fields.union(p._config.fields)
+                parent_indexes = p._config.indexes
 
         config_attrs['db'] = getattr(config, 'db', parent_db)
         config_attrs['collection_name'] = getattr(config, 'collection_name', name.lower())
@@ -23,6 +25,9 @@ class DocumentMetaclass(type):
         fields = fields.union(parent_fields)
         fields.add('_id')
         config_attrs['fields'] = fields
+
+        indexes = getattr(config, 'indexes', [])
+        config_attrs['indexes'] = indexes
 
         new_class = super().__new__(cls, name, bases, attrs)
         new_class._config = Config(config_attrs)
