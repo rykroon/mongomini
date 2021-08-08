@@ -13,7 +13,10 @@ class Index:
         self.sparse = sparse
 
     def __eq__(self, other):
-        return self.name == other.name and self.fields == other.fields
+        if not isinstance(other, Index):
+            return False
+        
+        return self.keys == other.keys
 
     def create(self):
         ...
