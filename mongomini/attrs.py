@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from contextlib import suppress
 from datetime import date, datetime
 from decimal import Decimal
@@ -10,38 +11,8 @@ document = attr.s
 def type_validator(obj, attr, value):
     if isinstance(value, attr.type):
         return
-    
-    if value is None and attr.metadata['optional']:
-        return
 
     raise TypeError
-
-
-def choice_validator(obj, attr, value):
-    if not attr.metadata['choices']:
-        return
-
-    if value in attr.metadata['choices']:
-        return
-
-    if value is None and attr.metadata['optional']:
-        return
-
-    raise ValueError
-
-
-def max_length_validator(obj, attr, value):
-    if not attr.metadata['max_length']:
-        return
-
-    if value is None and attr.metadata['optional']:
-        return
-
-    if len(value) <= attr.metadata['max_length']:
-        return
-
-    raise ValueError
-
 
 
 ### Converters ###
@@ -109,14 +80,9 @@ def str_converter(value):
 
 ### Fields ###
 
-def field(choices=None, optional=False, metadata=None, **kwargs):
-    metadata = dict() if metadata is None else metadata
-    metadata['choices'] = choices
-    metadata['optional'] = optional
-
+def field(**kwargs):
     return attr.ib(
         validator=type_validator,
-        metadata=metadata,
         **kwargs
     )
 
@@ -129,25 +95,18 @@ def bool_field(**kwargs):
     )
 
 
-def datetime_field(auto_now=False, **kwargs):
-    factory = datetime.utcnow if auto_now else None
-    
+def datetime_field(**kwargs):
     return field(
         type=datetime,
-        factory=factory,
         converter=datetime_converter,
         **kwargs
     )
 
 
-def decimal_field(max_digits=None, decimal_places=None, **kwargs):
+def decimal_field(**kwargs):
     return field(
         type=Decimal,
         converter=decimal_converter,
-        metadata={
-            'max_digits': max_digits,
-            'decimal_places': decimal_places
-        }
         **kwargs
     )
 
@@ -168,14 +127,10 @@ def int_field(**kwargs):
     )
 
 
-def str_field(max_length=None, **kwargs):
+def str_field(**kwargs):
     return field(
         type=str,
         converter=str_converter,
-        validator=max_length_validator,
-        metedata={
-            'max_length': max_length
-        }
         **kwargs
     )
 
