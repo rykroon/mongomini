@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from contextlib import suppress
 from datetime import date, datetime
 from decimal import Decimal
+from enum import Enum
 import attr
 
 
@@ -16,6 +17,10 @@ def type_validator(obj, attr, value):
 
 
 ### Converters ###
+def enum_converter(value):
+    if isinstance(value, Enum):
+        return value.value
+
 
 def bool_converter(value):
     with suppress(Exception):
