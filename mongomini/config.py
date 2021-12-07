@@ -1,3 +1,4 @@
+from mongoext import CollectionExt
 
 
 class ImproperlyConfigured(Exception):
@@ -13,7 +14,7 @@ class Config:
 
         self.collection = None
         if self.db and not self.abstract:
-            self.collection = self.db[self.collection_name]
+            self.collection = CollectionExt(name=self.collection_name, database=self.db)
 
         self.validate()
 

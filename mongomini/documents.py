@@ -69,14 +69,11 @@ class Document(metaclass=DocumentMetaclass):
 
     def _insert(self):
         doc = self.to_dict(exclude=['_id'])
-        result = self._config.collection.insert_one(doc)
+        result = self._config.collection.insert(doc)
         self.pk = result.inserted_id
 
     def _update(self):
-        self._config.collection.update_one(
-            {'_id': self.pk},
-            {'$set': self.to_dict()}
-        )
+        self._config.collection.update(self.to_dict())
 
     def to_dict(self, include=None, exclude=None):
         if include and exclude:
@@ -105,4 +102,4 @@ class Document(metaclass=DocumentMetaclass):
             raise AssertionError("{} object can't be deleted because its _id attribute is set to None.".format(
                 self.__class__.__name__
             ))
-        self._config.collection.delete_one({'_id': self.pk})
+        self._config.collection.delete(self.to_dict())
