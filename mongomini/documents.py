@@ -102,4 +102,4 @@ class Document(metaclass=DocumentMetaclass):
             raise AssertionError("{} object can't be deleted because its _id attribute is set to None.".format(
                 self.__class__.__name__
             ))
-        self._config.collection.delete(self.to_dict())
+        self._config.collection.delete_by_id(self.pk)
