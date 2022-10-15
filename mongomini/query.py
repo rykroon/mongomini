@@ -25,19 +25,25 @@ class QueryManager:
 
     @cached_property
     def field_names(self):
-        return tuple([f.name for f in self.fields])
+        return [f.name for f in self.fields]
 
     @cached_property
     def _auto_now_fields(self):
-        return [f.name for f in self.fields if f.metadata.get('auto_now') is True]
+        filter_func = lambda field: field.metadata.get('auto_now') is True
+        filtered_fields = filter(filter_func, self.fields)
+        return [field.name for field in filtered_fields]
 
     @cached_property
     def _auto_now_add_fields(self):
-        return [f.name for f in self.fields if f.metadata.get('auto_now_add') is True]
+        filter_func = lambda field: field.metadata.get('auto_now_add') is True
+        filtered_fields = filter(filter_func, self.fields)
+        return [field.name for field in filtered_fields]
 
     @cached_property
     def _editable_fields(self):
-        return [f.name for f in self.fields if f.metadata.get('editable', True) is True]
+        filter_func = lambda field: field.metadata.get('editable', True) is True
+        filtered_fields = filter(filter_func, self.fields)
+        return [field.name for field in filtered_fields]
 
     def find(self, query):
         cursor = self.collection.find(query)
@@ -97,11 +103,17 @@ class QueryManager:
 
     def _update_auto_now_add_fields(self, obj):
         all_auto_now_fields = self._auto_now_add_fields + self._auto_now_fields
+        if not all_auto_now_fields:
+            return
+    
         now = datetime.utcnow()
         for field in all_auto_now_fields:
             setattr(obj, field, now)
 
     def _update_auto_now_fields(self, obj):
+        if not self._auto_now_add_fields:
+            return
+
         now = datetime.utcnow()
         for field in self._auto_now_fields:
             setattr(obj, field, now)
