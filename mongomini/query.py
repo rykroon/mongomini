@@ -1,15 +1,21 @@
-from dataclasses import asdict, fields
+from dataclasses import asdict, fields, is_dataclass
 from datetime import datetime
 from functools import cached_property
-
-from bson import ObjectId
+import inspect
 
 from .exceptions import ObjectDoesNotExist, MultipleObjectsReturned
+from .utils import Include
 
 
 class QueryManager:
 
     def __init__(self, class_, collection):
+        if not is_dataclass(class_):
+            raise TypeError
+
+        if not inspect.isclass(class_):
+            raise TypeError
+
         self.class_ = class_
         self.collection = collection
 
@@ -19,7 +25,7 @@ class QueryManager:
 
     @cached_property
     def field_names(self):
-        return [f.name for f in self.fields]
+        return tuple([f.name for f in self.fields])
 
     @cached_property
     def _auto_now_fields(self):
@@ -29,6 +35,10 @@ class QueryManager:
     def _auto_now_add_fields(self):
         return [f.name for f in self.fields if f.metadata.get('auto_now_add') is True]
 
+    @cached_property
+    def _editable_fields(self):
+        return [f.name for f in self.fields if f.metadata.get('editable', True) is True]
+
     def find(self, query):
         cursor = self.collection.find(query)
         return ObjectIterator(cursor, self.class_)
@@ -37,7 +47,7 @@ class QueryManager:
         cursor = self.collection.find(query)
 
         try:
-            result = await cursor.next()
+            document = await cursor.next()
 
         except StopAsyncIteration:
             raise ObjectDoesNotExist
@@ -51,22 +61,23 @@ class QueryManager:
         else:
             raise MultipleObjectsReturned
 
-        return self._from_document(result)
+        return self._from_document(document)
 
     async def insert(self, obj, /):
-        if obj._id is None:
-            obj._id = ObjectId()
-
-        self._set_auto_now_add_fields(obj)
+        self._update_auto_now_add_fields(obj)
         document = asdict(obj)
         result = await self.collection.insert_one(document)
         assert result.acknowledged
         self._id = result.inserted_id
 
     async def update(self, obj, /):
-        query = {'_id': obj._id}
-        update = {'$set': asdict(obj)}
-        result = await self.collection.update_one(query, update)
+        self._update_auto_now_fields(obj)
+        filter_ = {'_id': obj._id}
+        update = {
+            '$set': asdict(obj, dict_factory=Include(self._editable_fields))
+        }
+
+        result = await self.collection.update_one(filter_, update)
         assert result.acknowledged
         assert result.matched_count == 1
         assert result.modified_count == 1
@@ -75,8 +86,8 @@ class QueryManager:
         return await self.delete_by_id(obj._id)
 
     async def delete_by_id(self, _id, /):
-        query = {'_id': _id}
-        result = await self.collection.delete_one(query)
+        filter_ = {'_id': _id}
+        result = await self.collection.delete_one(filter_)
         assert result.acknowledged
         return result.deleted_count
 
@@ -84,13 +95,13 @@ class QueryManager:
         kwargs = {f: document[f] for f in self.field_names if f in document}
         return self.class_(**kwargs)
 
-    def _set_auto_now_add_fields(self, obj):
+    def _update_auto_now_add_fields(self, obj):
         all_auto_now_fields = self._auto_now_add_fields + self._auto_now_fields
         now = datetime.utcnow()
         for field in all_auto_now_fields:
             setattr(obj, field, now)
 
-    def _set_auto_now_fields(self, obj):
+    def _update_auto_now_fields(self, obj):
         now = datetime.utcnow()
         for field in self._auto_now_fields:
             setattr(obj, field, now)
@@ -104,6 +115,10 @@ class QueryManager:
 
         if not isinstance(value, field.type):
             raise TypeError
+
+        required = field.metadata.get('required')
+        if required and bool(value) is False:
+            raise ValueError
 
         choices = field.metadata.get('choices')
         if choices is not None:
@@ -121,5 +136,5 @@ class ObjectIterator:
         return self
 
     async def __anext__(self):
-        document = await self._cursor.next()
+        document = await self.cursor.next()
         return self.manager._from_document(document)

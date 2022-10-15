@@ -1,13 +1,17 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from bson import ObjectId
-
 
 
 @dataclass
 class Document:
 
-    _id: ObjectId = None
+    _id: ObjectId = field(
+        default_factory=ObjectId,
+        metadata=dict(
+            update=None
+        )
+    )
 
     @classmethod
     def new(cls, *args, **kwargs):
@@ -17,8 +21,3 @@ class Document:
 
     def init(self):
         ...
-
-    @property
-    def pk(self):
-        return self._id
-    
