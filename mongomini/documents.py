@@ -8,9 +8,6 @@ class Document:
 
     _id: ObjectId = field(
         default_factory=ObjectId,
-        metadata=dict(
-            update=None
-        )
     )
 
     @classmethod

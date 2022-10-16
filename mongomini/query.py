@@ -2,6 +2,7 @@ from dataclasses import asdict, fields, is_dataclass
 from datetime import datetime
 from functools import cached_property
 import inspect
+import itertools
 
 from .exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from .utils import Include
@@ -11,13 +12,15 @@ class QueryManager:
 
     def __init__(self, class_, collection):
         if not is_dataclass(class_):
-            raise TypeError
+            raise TypeError("Class is not a dataclass.")
 
         if not inspect.isclass(class_):
-            raise TypeError
+            raise TypeError("Class is not a class.")
 
         self.class_ = class_
         self.collection = collection
+
+        assert '_id' in self.field_names, "Dataclass must have an '_id' field."
 
     @cached_property
     def fields(self):
@@ -29,25 +32,31 @@ class QueryManager:
 
     @cached_property
     def _auto_now_fields(self):
-        filter_func = lambda field: field.metadata.get('auto_now') is True
-        filtered_fields = filter(filter_func, self.fields)
-        return [field.name for field in filtered_fields]
+        return [
+            field.name
+            for field in self.fields
+            if field.metadata.get('auto_now') is True
+        ]
 
     @cached_property
     def _auto_now_add_fields(self):
-        filter_func = lambda field: field.metadata.get('auto_now_add') is True
-        filtered_fields = filter(filter_func, self.fields)
-        return [field.name for field in filtered_fields]
+        return [
+            field.name
+            for field in self.fields
+            if field.metadata.get('auto_now_add') is True
+        ]
 
     @cached_property
     def _editable_fields(self):
-        filter_func = lambda field: field.metadata.get('editable', True) is True
-        filtered_fields = filter(filter_func, self.fields)
-        return [field.name for field in filtered_fields]
+        return [
+            field.name
+            for field in self.fields
+            if field.metadata.get('editable', True) is True
+        ]
 
     def find(self, query):
         cursor = self.collection.find(query)
-        return ObjectIterator(cursor, self.class_)
+        return ObjectIterator(cursor, self)
 
     async def get(self, query):
         cursor = self.collection.find(query)
@@ -72,40 +81,35 @@ class QueryManager:
     async def insert(self, obj, /):
         self._update_auto_now_add_fields(obj)
         document = asdict(obj)
-        result = await self.collection.insert_one(document)
-        assert result.acknowledged
-        self._id = result.inserted_id
+        return await self.collection.insert_one(document)
 
     async def update(self, obj, /):
         self._update_auto_now_fields(obj)
         filter_ = {'_id': obj._id}
         update = {
-            '$set': asdict(obj, dict_factory=Include(self._editable_fields))
+            '$set': asdict(obj, dict_factory=Include(*self._editable_fields))
         }
-
-        result = await self.collection.update_one(filter_, update)
-        assert result.acknowledged
-        assert result.matched_count == 1
-        assert result.modified_count == 1
+        return await self.collection.update_one(filter_, update)
 
     async def delete(self, obj, /):
         return await self.delete_by_id(obj._id)
 
     async def delete_by_id(self, _id, /):
         filter_ = {'_id': _id}
-        result = await self.collection.delete_one(filter_)
-        assert result.acknowledged
-        return result.deleted_count
+        return await self.collection.delete_one(filter_)
 
     def _from_document(self, document: dict):
         kwargs = {f: document[f] for f in self.field_names if f in document}
         return self.class_(**kwargs)
 
     def _update_auto_now_add_fields(self, obj):
-        all_auto_now_fields = self._auto_now_add_fields + self._auto_now_fields
-        if not all_auto_now_fields:
+        if not self._auto_now_add_fields and not self._auto_now_fields:
             return
-    
+
+        all_auto_now_fields = itertools.chain(
+            self._auto_now_add_fields,
+            self._auto_now_fields
+        )
         now = datetime.utcnow()
         for field in all_auto_now_fields:
             setattr(obj, field, now)
@@ -149,4 +153,5 @@ class ObjectIterator:
 
     async def __anext__(self):
         document = await self.cursor.next()
-        return self.manager._from_document(document)
+        obj = self.manager._from_document(document)
+        return obj
