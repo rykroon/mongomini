@@ -4,11 +4,13 @@ from functools import cached_property
 import inspect
 import itertools
 
+from bson import ObjectId
+
 from .exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from .utils import Include
 
 
-class QueryManager:
+class ObjectManager:
 
     def __init__(self, class_, collection):
         if not is_dataclass(class_):
@@ -28,31 +30,31 @@ class QueryManager:
 
     @cached_property
     def field_names(self):
-        return [f.name for f in self.fields]
+        return tuple([f.name for f in self.fields])
 
     @cached_property
     def _auto_now_fields(self):
-        return [
+        return tuple([
             field.name
             for field in self.fields
             if field.metadata.get('auto_now') is True
-        ]
+        ])
 
     @cached_property
     def _auto_now_add_fields(self):
-        return [
+        return tuple([
             field.name
             for field in self.fields
             if field.metadata.get('auto_now_add') is True
-        ]
+        ])
 
     @cached_property
     def _editable_fields(self):
-        return [
+        return tuple([
             field.name
             for field in self.fields
             if field.metadata.get('editable', True) is True
-        ]
+        ])
 
     def find(self, query):
         cursor = self.collection.find(query)
@@ -79,6 +81,9 @@ class QueryManager:
         return self._from_document(document)
 
     async def insert(self, obj, /):
+        if obj._id is None:
+            obj._id = ObjectId()
+
         self._update_auto_now_add_fields(obj)
         document = asdict(obj)
         return await self.collection.insert_one(document)
