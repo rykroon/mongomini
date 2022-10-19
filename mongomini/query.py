@@ -1,13 +1,10 @@
 from dataclasses import asdict, fields, is_dataclass
-from datetime import datetime
 from functools import cached_property
 import inspect
-import itertools
 
 from bson import ObjectId
 
 from .exceptions import ObjectDoesNotExist, MultipleObjectsReturned
-from .utils import Include
 
 
 class ObjectManager:
@@ -31,30 +28,6 @@ class ObjectManager:
     @cached_property
     def field_names(self):
         return tuple([f.name for f in self.fields])
-
-    @cached_property
-    def _auto_now_fields(self):
-        return tuple([
-            field.name
-            for field in self.fields
-            if field.metadata.get('auto_now') is True
-        ])
-
-    @cached_property
-    def _auto_now_add_fields(self):
-        return tuple([
-            field.name
-            for field in self.fields
-            if field.metadata.get('auto_now_add') is True
-        ])
-
-    @cached_property
-    def _editable_fields(self):
-        return tuple([
-            field.name
-            for field in self.fields
-            if field.metadata.get('editable', True) is True
-        ])
 
     def find(self, query):
         cursor = self.collection.find(query)
@@ -84,15 +57,13 @@ class ObjectManager:
         if obj._id is None:
             obj._id = ObjectId()
 
-        self._update_auto_now_add_fields(obj)
         document = asdict(obj)
         return await self.collection.insert_one(document)
 
     async def update(self, obj, /):
-        self._update_auto_now_fields(obj)
         filter_ = {'_id': obj._id}
         update = {
-            '$set': asdict(obj, dict_factory=Include(*self._editable_fields))
+            '$set': asdict(obj)
         }
         return await self.collection.update_one(filter_, update)
 
@@ -106,45 +77,6 @@ class ObjectManager:
     def _from_document(self, document: dict):
         kwargs = {f: document[f] for f in self.field_names if f in document}
         return self.class_(**kwargs)
-
-    def _update_auto_now_add_fields(self, obj):
-        if not self._auto_now_add_fields and not self._auto_now_fields:
-            return
-
-        all_auto_now_fields = itertools.chain(
-            self._auto_now_add_fields,
-            self._auto_now_fields
-        )
-        now = datetime.utcnow()
-        for field in all_auto_now_fields:
-            setattr(obj, field, now)
-
-    def _update_auto_now_fields(self, obj):
-        if not self._auto_now_add_fields:
-            return
-
-        now = datetime.utcnow()
-        for field in self._auto_now_fields:
-            setattr(obj, field, now)
-
-    def _validate(self, obj):
-        for field in self.fields:
-            self._validate_field(field, obj)
-
-    def _validate_field(self, field, obj):
-        value = getattr(obj, field.name)
-
-        if not isinstance(value, field.type):
-            raise TypeError
-
-        required = field.metadata.get('required')
-        if required and bool(value) is False:
-            raise ValueError
-
-        choices = field.metadata.get('choices')
-        if choices is not None:
-            if value not in choices:
-                raise ValueError
 
 
 class ObjectIterator:
