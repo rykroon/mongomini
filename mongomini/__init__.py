@@ -1,2 +1,1 @@
-from mongomini.query import QueryManager
-
+from mongomini.query import ObjectManager

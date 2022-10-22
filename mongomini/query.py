@@ -2,7 +2,7 @@ from dataclasses import asdict, fields, is_dataclass
 from functools import cached_property
 import inspect
 
-from bson import ObjectId
+from bson.objectid import ObjectId
 
 from .exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 
