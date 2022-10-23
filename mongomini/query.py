@@ -1,15 +1,17 @@
-from dataclasses import asdict, fields, is_dataclass
+from dataclasses import asdict, fields, is_dataclass, Field
 from functools import cached_property
 import inspect
+from typing import Any
 
 from bson.objectid import ObjectId
+from motor.motor_asyncio import AsyncIOMotorCollection
 
 from .exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 
 
 class ObjectManager:
 
-    def __init__(self, class_, collection):
+    def __init__(self, class_, collection: AsyncIOMotorCollection):
         if not is_dataclass(class_):
             raise TypeError("Class is not a dataclass.")
 
@@ -22,18 +24,18 @@ class ObjectManager:
         assert '_id' in self.field_names, "Dataclass must have an '_id' field."
 
     @cached_property
-    def fields(self):
+    def fields(self) -> tuple[Field[Any], ...]:
         return fields(self.class_)
 
     @cached_property
-    def field_names(self):
+    def field_names(self) -> tuple[str, ...]:
         return tuple([f.name for f in self.fields])
 
-    def find(self, query):
+    def find(self, query: dict):
         cursor = self.collection.find(query)
         return ObjectIterator(cursor, self)
 
-    async def get(self, query):
+    async def get(self, query: dict):
         cursor = self.collection.find(query)
 
         try:
