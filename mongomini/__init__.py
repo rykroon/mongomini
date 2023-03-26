@@ -6,9 +6,12 @@ from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorCursor
 import pymongo
 
 
+CollectionType = ClassVar[AsyncIOMotorCollection]
+
+
 @dataclass(kw_only=True)
 class Document:
-    _collection: ClassVar[AsyncIOMotorCollection]
+    _collection: CollectionType
     _id: ObjectId = field(default_factory=ObjectId)
 
     @classmethod
