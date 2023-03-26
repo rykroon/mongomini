@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mongomini_rykroon"
+name = "mongomini"
 version = "23.3.0"
 authors = [
   { name="Ryan Kroon", email="rykroon.tech@gmail.com" },
