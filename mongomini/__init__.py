@@ -3,6 +3,7 @@ from typing import ClassVar
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorCursor
+import pymongo
 
 
 @dataclass(kw_only=True)
@@ -20,13 +21,10 @@ class Document:
     @classmethod
     def find(
         cls,
-        query: dict | None = None,
-        skip: int = 0,
-        limit: int = 0,
-        sort: list[tuple[str, int]] | None = None,
+        **kwargs
     ) -> AsyncIOMotorCursor:
-        cursor = cls._collection.find(filter=query, skip=skip, limit=limit, sort=sort)
-        return CursorWrapper(cls, cursor)
+        cursor = cls._collection.find(filter=kwargs)
+        return DocumentCursor(cls, cursor)
 
     @classmethod
     async def find_one(cls, **kwargs):
@@ -52,7 +50,7 @@ class Document:
 
 
 @dataclass
-class CursorWrapper:
+class DocumentCursor:
 
     class_: type[Document]
     cursor: AsyncIOMotorCursor
@@ -64,3 +62,17 @@ class CursorWrapper:
         document = await anext(self.cursor)
         return self.class_.from_document(document)
 
+    def limit(self, limit: int):
+        self.cursor.limit(limit)
+
+    def skip(self, skip: int):
+        self.cursor.skip(skip)
+
+    def sort(self, *fields: str):
+        field_list =[
+            (f, pymongo.ASCENDING)
+            if not f.startswith('-')
+            else (f[1:], pymongo.DESCENDING)
+            for f in fields
+        ]
+        self.cursor.sort(field_list)
