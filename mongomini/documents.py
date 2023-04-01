@@ -1,9 +1,11 @@
 from dataclasses import asdict, dataclass, field, fields
-from typing import ClassVar
+from typing import ClassVar, Any
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorCursor
 import pymongo
+
+from .exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 
 
 CollectionType = ClassVar[AsyncIOMotorCollection]
@@ -16,41 +18,41 @@ class Document:
 
     @classmethod
     def from_document(cls, document: dict):
+        """
+            Note to self.
+            Currently the way this works, if someone chose init=False
+            for a field then the below will fail.
+            Might need to add logic that splits fields between
+            init=True and init=False, the init=False fields will have to
+            be added after initialization using setattr,
+        """
         field_names = set(f.name for f in fields(cls))
         fields_in_doc = field_names.intersection(document)
         params = {f: document[f] for f in fields_in_doc}
         return cls(**params)
 
     @classmethod
-    def find(cls, **kwargs) -> AsyncIOMotorCursor:
-        cursor = cls._collection.find(filter=kwargs)
+    def find(cls, query: dict[str, Any]) -> AsyncIOMotorCursor:
+        cursor = cls._collection.find(filter=query)
         return DocumentCursor(cls, cursor)
     
     @classmethod
-    async def get(cls, **kwargs):
-        cursor = cls.find(**kwargs)
+    async def get(cls, query: dict[str, Any]):
+        cursor = cls.find(query)
         try:
             result = await anext(cursor)
 
-        except StopAsyncIteration:
-            raise ... # not found
-        
+        except StopAsyncIteration as exc:
+            raise ObjectDoesNotExist from exc
+
         try:
             await anext(cursor)
 
         except StopAsyncIteration:
             return result
-        
+
         else:
-            raise ... # multiple objects returned.
-
-
-    @classmethod
-    async def find_one(cls, **kwargs):
-        document = await cls._collection.find_one(kwargs)
-        if document is None:
-            return None
-        return cls.from_document(document)
+            raise MultipleObjectsReturned
 
     async def insert(self):
         result = await self._collection.insert_one(asdict(self))
