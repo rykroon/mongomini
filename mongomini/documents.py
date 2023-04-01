@@ -17,19 +17,16 @@ class Document:
     _id: ObjectId = field(default_factory=ObjectId)
 
     @classmethod
-    def from_document(cls, document: dict):
-        """
-            Note to self.
-            Currently the way this works, if someone chose init=False
-            for a field then the below will fail.
-            Might need to add logic that splits fields between
-            init=True and init=False, the init=False fields will have to
-            be added after initialization using setattr,
-        """
-        field_names = set(f.name for f in fields(cls))
-        fields_in_doc = field_names.intersection(document)
-        params = {f: document[f] for f in fields_in_doc}
-        return cls(**params)
+    def from_document(cls, document: dict[str, Any]):
+        init_fields = []
+        non_init_fields = []
+        for field in fields(cls):
+            (non_init_fields, init_fields)[field.init].append(field.name)
+
+        params = {f: document[f] for f in init_fields if f in document}
+        obj = cls(**params)
+        [setattr(obj, f, document[f]) for f in non_init_fields if f in document]
+        return obj
 
     @classmethod
     def find(cls, query: dict[str, Any]) -> AsyncIOMotorCursor:
@@ -43,7 +40,7 @@ class Document:
             result = await anext(cursor)
 
         except StopAsyncIteration as exc:
-            raise ObjectDoesNotExist from exc
+            raise ObjectDoesNotExist
 
         try:
             await anext(cursor)
@@ -51,8 +48,7 @@ class Document:
         except StopAsyncIteration:
             return result
 
-        else:
-            raise MultipleObjectsReturned
+        raise MultipleObjectsReturned
 
     async def insert(self):
         result = await self._collection.insert_one(asdict(self))
