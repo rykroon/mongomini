@@ -21,11 +21,19 @@ class Document:
         init_fields = []
         non_init_fields = []
         for field in fields(cls):
-            (non_init_fields, init_fields)[field.init].append(field.name)
+            if field.init:
+                init_fields.append(field.name)
+            else:
+                non_init_fields.append(field.name)
 
-        params = {f: document[f] for f in init_fields if f in document}
-        obj = cls(**params)
-        [setattr(obj, f, document[f]) for f in non_init_fields if f in document]
+        init_kwargs = {f: document[f] for f in init_fields if f in document}
+        obj = cls(**init_kwargs)
+
+        for f in non_init_fields:
+            if f not in document:
+                continue
+            setattr(obj, f, document[f])
+
         return obj
 
     @classmethod
