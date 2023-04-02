@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mongomini"
-version = "23.4.0-a"
+version = "0.1.0a1"
 authors = [
   { name="Ryan Kroon", email="rykroon.tech@gmail.com" },
 ]
