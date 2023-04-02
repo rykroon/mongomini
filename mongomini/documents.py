@@ -59,7 +59,14 @@ class Document:
         raise MultipleObjectsReturned
 
     async def insert(self):
-        result = await self._collection.insert_one(asdict(self))
+        document = asdict(self)
+        if document['_id'] is None:
+            del document['_id']
+
+        result = await self._collection.insert_one(document)
+        if self._id is None:
+            self._id = result.inserted_id
+
         assert result.inserted_id == self._id
 
     async def update(self):
