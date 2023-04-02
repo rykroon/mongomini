@@ -2,18 +2,19 @@ from dataclasses import asdict, dataclass, field, fields
 from typing import ClassVar, Any
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorCursor
+from motor.motor_asyncio import AsyncIOMotorCursor
 import pymongo
 
 from .exceptions import ObjectDoesNotExist, MultipleObjectsReturned
+from .meta import Meta
 
 
-CollectionType = ClassVar[AsyncIOMotorCollection]
+MetaClassVar = ClassVar[Meta]
 
 
 @dataclass(kw_only=True)
 class Document:
-    _collection: CollectionType
+    meta: MetaClassVar
     _id: ObjectId = field(default_factory=ObjectId)
 
     @classmethod
@@ -38,7 +39,7 @@ class Document:
 
     @classmethod
     def find(cls, query: dict[str, Any]) -> AsyncIOMotorCursor:
-        cursor = cls._collection.find(filter=query)
+        cursor = cls.meta.collection.find(filter=query)
         return DocumentCursor(cls, cursor)
     
     @classmethod
@@ -63,21 +64,21 @@ class Document:
         if document['_id'] is None:
             del document['_id']
 
-        result = await self._collection.insert_one(document)
+        result = await self.__class__.meta.collection.insert_one(document)
         if self._id is None:
             self._id = result.inserted_id
 
         assert result.inserted_id == self._id
 
     async def update(self):
-        result = await self._collection.update_one(
+        result = await self.__class__.meta.collection.update_one(
             filter={"_id": self._id}, update={"$set": asdict(self)}
         )
         assert result.matched_count == 1
         assert result.modified_count == 1
 
     async def delete(self):
-        result = await self._collection.delete_one({"_id": self._id})
+        result = await self.__class__.meta.collection.delete_one({"_id": self._id})
         assert result.deleted_count == 1
 
 
