@@ -7,6 +7,7 @@ import pymongo
 
 from .exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from .meta import Meta
+from .utils import include
 
 
 MetaClassVar = ClassVar[Meta]
@@ -70,9 +71,11 @@ class Document:
 
         assert result.inserted_id == self._id
 
-    async def update(self):
+    async def update(self, *fields):
+        dict_factory = include(*fields) if fields else dict
+        document = asdict(self, dict_factory=dict_factory)
         result = await self.__class__.meta.collection.update_one(
-            filter={"_id": self._id}, update={"$set": asdict(self)}
+            filter={"_id": self._id}, update={"$set": document}
         )
         assert result.matched_count == 1
         assert result.modified_count == 1
