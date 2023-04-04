@@ -42,7 +42,7 @@ class Document:
     def find(cls, query: dict[str, Any]) -> AsyncIOMotorCursor:
         cursor = cls.meta.collection.find(filter=query)
         return DocumentCursor(cls, cursor)
-    
+
     @classmethod
     async def get(cls, query: dict[str, Any]):
         cursor = cls.find(query)
@@ -105,7 +105,7 @@ class DocumentCursor:
         self.cursor.skip(skip)
 
     def sort(self, *fields: str):
-        field_list =[
+        field_list = [
             (f, pymongo.ASCENDING)
             if not f.startswith('-')
             else (f[1:], pymongo.DESCENDING)
