@@ -54,13 +54,13 @@ class Field:
     def __gt__(self, value):
         ...
     
-    def __gte__(self, value):
+    def __ge__(self, value):
         ...
     
     def __lt__(self, value):
         ...
     
-    def __lte__(self, value):
+    def __le__(self, value):
         ...
 
 
@@ -83,6 +83,9 @@ class Expression:
 
     def __neg__(self):
         return Expression(field=self.field, op=self.op, value=self.value, neg=(not self.neg))
+    
+    def __repr__(self):
+        ...
 
     def to_dict(self):
         if not self.neg:
@@ -90,12 +93,13 @@ class Expression:
         return {self.field: {NOT: {self.op: self.value}}}
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class LogicalExpression:
     op: Literal['$and', '$or']
-    expressions: list[Expression | "LogicalExpression"]
+    expressions: list[Expression]
 
     def __post_init__(self):
+        # Remove duplicate expressions
         self.expressions = list(set(self.expressions))
 
     def __and__(self, other):
