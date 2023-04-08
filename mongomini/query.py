@@ -18,6 +18,18 @@ class Query:
         ...
 
 
+def kwargs_to_exprs(**kwargs):
+    expressions = None
+    for k, v in kwargs.items():
+        field, op = k.split('__') if '__' in k else (k, Operator.EQUAL.value)
+        expr = Expression(field=field, op=op, value=v)
+        if expressions is None:
+            expressions = expr
+        else:
+            expressions = expressions & expr
+    return expressions
+
+
 class Operator(StrEnum):
 
     # Comparison
@@ -34,6 +46,11 @@ class Operator(StrEnum):
     EXISTS = '$exists'
     TYPE = '$type'
 
+    # Array
+    ALL = '$all'
+    ELEM_MATCH = '$elemMatch'
+    SIZE = '$size'
+
 
 # Logical operators
 AND = '$and'
@@ -41,35 +58,18 @@ OR = '$or'
 NOT = '$not'
 
 
-@dataclass(frozen=True, eq=False)
-class Field:
-    name: str
-    
-    def __eq__(self, value):
-        ...
-    
-    def __ne__(self, value):
-        ...
-    
-    def __gt__(self, value):
-        ...
-    
-    def __ge__(self, value):
-        ...
-    
-    def __lt__(self, value):
-        ...
-    
-    def __le__(self, value):
-        ...
-
-
-@dataclass(frozen=True, slots=True)
-class Expression:
+@dataclass(repr=False)
+class Expression(dict):
     field: str
     op: Operator
     value: Any
     neg: bool = False
+
+    def __post_init__(self):
+        operator_expression = {self.op: self.value}
+        if self.neg:
+            operator_expression = {NOT: operator_expression}
+        self[self.field] = operator_expression
 
     def __and__(self, other):
         if not isinstance(other, Expression):
@@ -83,24 +83,15 @@ class Expression:
 
     def __neg__(self):
         return Expression(field=self.field, op=self.op, value=self.value, neg=(not self.neg))
-    
-    def __repr__(self):
-        ...
-
-    def to_dict(self):
-        if not self.neg:
-            return {self.field: {self.op, self.value}}
-        return {self.field: {NOT: {self.op: self.value}}}
 
 
-@dataclass(slots=True)
-class LogicalExpression:
+@dataclass(repr=False)
+class LogicalExpression(dict):
     op: Literal['$and', '$or']
-    expressions: list[Expression]
+    expressions: list[dict[str, Any]]
 
     def __post_init__(self):
-        # Remove duplicate expressions
-        self.expressions = list(set(self.expressions))
+        self[self.op] = self.expressions
 
     def __and__(self, other):
         if not isinstance(other, (Expression, LogicalExpression)):
@@ -139,6 +130,8 @@ class LogicalExpression:
             )
 
         return LogicalExpression(op=OR, expressions=[self, other])
-
-    def to_dict(self):
-        return {self.op: [expr.to_dict() for expr in self.expressions]}
+    
+    def __neg__(self):
+        op = {AND: OR, OR: AND}[self.op]
+        expressions = [-expr for expr in self.expressions]
+        return LogicalExpression(op=op, expressions=expressions)
