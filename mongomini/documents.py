@@ -13,8 +13,15 @@ from .utils import include
 MetaClassVar = ClassVar[Meta]
 
 
-@dataclass(kw_only=True)
-class Document:
+class MetaDataclass(type):
+
+    def __new__(cls, name, bases, attrs):
+        new_cls = super().__new__(cls, name, bases, attrs)
+        new_cls = dataclass(kw_only=True)(new_cls)
+        return new_cls
+
+
+class Document(metaclass=MetaDataclass):
     meta: MetaClassVar
     _id: ObjectId = field(default_factory=ObjectId)
 
