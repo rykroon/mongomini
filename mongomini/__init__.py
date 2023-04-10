@@ -1,3 +1,3 @@
-from .documents import MetaClassVar, Document
+from .documents import Document
 from .exceptions import MultipleObjectsReturned, ObjectDoesNotExist
-from .meta import Meta
+from .utils import CollectionDescriptor

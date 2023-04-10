@@ -2,15 +2,11 @@ from dataclasses import asdict, dataclass, field, fields
 from typing import ClassVar, Any
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorCursor
+from motor.motor_asyncio import AsyncIOMotorCursor, AsyncIOMotorDatabase, AsyncIOMotorCollection
 import pymongo
 
 from .exceptions import ObjectDoesNotExist, MultipleObjectsReturned
-from .meta import Meta
-from .utils import include
-
-
-MetaClassVar = ClassVar[Meta]
+from .utils import include, CollectionDescriptor
 
 
 class MetaDataclass(type):
@@ -22,7 +18,10 @@ class MetaDataclass(type):
 
 
 class Document(metaclass=MetaDataclass):
-    meta: MetaClassVar
+    db: ClassVar[AsyncIOMotorDatabase | None] = None
+    collection: ClassVar[AsyncIOMotorCollection] = CollectionDescriptor()
+    collection_name: ClassVar[str | None] = None
+
     _id: ObjectId = field(default_factory=ObjectId)
 
     @classmethod
@@ -47,7 +46,7 @@ class Document(metaclass=MetaDataclass):
 
     @classmethod
     def find(cls, query: dict[str, Any]) -> AsyncIOMotorCursor:
-        cursor = cls.meta.collection.find(filter=query)
+        cursor = cls.collection.find(filter=query)
         return DocumentCursor(cls, cursor)
 
     @classmethod
@@ -72,7 +71,7 @@ class Document(metaclass=MetaDataclass):
         if document['_id'] is None:
             del document['_id']
 
-        result = await self.__class__.meta.collection.insert_one(document)
+        result = await self.__class__.collection.insert_one(document)
         if self._id is None:
             self._id = result.inserted_id
 
@@ -81,14 +80,14 @@ class Document(metaclass=MetaDataclass):
     async def update(self, *fields):
         dict_factory = include(*fields) if fields else dict
         document = asdict(self, dict_factory=dict_factory)
-        result = await self.__class__.meta.collection.update_one(
+        result = await self.__class__.collection.update_one(
             filter={"_id": self._id}, update={"$set": document}
         )
         assert result.matched_count == 1
         assert result.modified_count == 1
 
     async def delete(self):
-        result = await self.__class__.meta.collection.delete_one({"_id": self._id})
+        result = await self.__class__.collection.delete_one({"_id": self._id})
         assert result.deleted_count == 1
 
 
