@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Literal
 
@@ -21,7 +21,7 @@ class Query:
 def kwargs_to_exprs(**kwargs):
     expressions = None
     for k, v in kwargs.items():
-        field, op = k.split('__') if '__' in k else (k, Operator.EQUAL.value)
+        field, op = k.split('__') if '__' in k else (k, FieldOperator.EQUAL.value)
         expr = Expression(field=field, op=op, value=v)
         if expressions is None:
             expressions = expr
@@ -30,7 +30,7 @@ def kwargs_to_exprs(**kwargs):
     return expressions
 
 
-class Operator(StrEnum):
+class FieldOperator(StrEnum):
 
     # Comparison
     EQUAL = '$eq'
@@ -46,6 +46,10 @@ class Operator(StrEnum):
     EXISTS = '$exists'
     TYPE = '$type'
 
+    # Evaluation
+    MOD = '$mod'
+    REGEX = '$regex'
+
     # Array
     ALL = '$all'
     ELEM_MATCH = '$elemMatch'
@@ -58,31 +62,45 @@ OR = '$or'
 NOT = '$not'
 
 
-@dataclass(repr=False)
+@dataclass(init=False, repr=False, eq=False)
 class Expression(dict):
+    lhs: str = field(init=False, repr=False, compare=False)
+    rhs: Any = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self):
+        self[self.lhs] = self.rhs
+
+
+@dataclass(repr=False)
+class FieldExpression(Expression):
     field: str
-    op: Operator
+    op: FieldOperator
     value: Any
     neg: bool = False
 
-    def __post_init__(self):
-        operator_expression = {self.op: self.value}
-        if self.neg:
-            operator_expression = {NOT: operator_expression}
-        self[self.field] = operator_expression
+    @property
+    def lhs(self):
+        return self.field
+
+    @property
+    def rhs(self):
+        rhs = {self.op: self.value}
+        if not self.neg:
+            return rhs
+        return {NOT: rhs}
 
     def __and__(self, other):
-        if not isinstance(other, Expression):
+        if not isinstance(other, FieldExpression):
             return NotImplemented
         return LogicalExpression(op=AND, expressions=[self, other])
 
     def __or__(self, other):
-        if not isinstance(other, Expression):
+        if not isinstance(other, FieldExpression):
             return NotImplemented
         return LogicalExpression(op=OR, expressions=[self, other])
 
     def __neg__(self):
-        return Expression(field=self.field, op=self.op, value=self.value, neg=(not self.neg))
+        return FieldExpression(field=self.field, op=self.op, value=self.value, neg=(not self.neg))
 
 
 @dataclass(repr=False)
@@ -92,12 +110,20 @@ class LogicalExpression(dict):
 
     def __post_init__(self):
         self[self.op] = self.expressions
+    
+    @property
+    def lhs(self):
+        return self.op
+
+    @property
+    def rhs(self):
+        return self.expressions
 
     def __and__(self, other):
-        if not isinstance(other, (Expression, LogicalExpression)):
+        if not isinstance(other, Expression):
             return NotImplemented
 
-        if isinstance(other, Expression):
+        if isinstance(other, FieldExpression):
             if self.op == AND:
                 return LogicalExpression(
                     op=AND, expressions=[*self.expressions, other]
@@ -113,10 +139,10 @@ class LogicalExpression(dict):
         return LogicalExpression(op=AND, expressions=[self, other])
 
     def __or__(self, other):
-        if not isinstance(other, (Expression, LogicalExpression)):
+        if not isinstance(other, Expression):
             return NotImplemented
         
-        if isinstance(other, Expression):
+        if isinstance(other, FieldExpression):
             if self.op == OR:
                 return LogicalExpression(
                     op=OR, expressions=[*self.expressions, other]
@@ -130,7 +156,7 @@ class LogicalExpression(dict):
             )
 
         return LogicalExpression(op=OR, expressions=[self, other])
-    
+
     def __neg__(self):
         op = {AND: OR, OR: AND}[self.op]
         expressions = [-expr for expr in self.expressions]
