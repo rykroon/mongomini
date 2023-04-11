@@ -3,17 +3,25 @@ from motor.motor_asyncio import AsyncIOMotorCollection
 
 class CollectionDescriptor:
 
+    """
+        A descriptor that will return a MongoDB Collection.
+        The owner is expected to have a 'db' value.
+        The collection name will default to the name of the owner
+        class all lowercase. You can provide a collection name
+        upon instantiation.
+    """
+
+    def __init__(self, collection_name: str | None = None):
+        self.collection_name = collection_name
+
     def __get__(self, obj, objtype=None) -> AsyncIOMotorCollection:
         if obj is not None:
             raise TypeError("Cannot access 'collection' from instance.")
-        
-        if objtype.db is None:
-            raise TypeError('Must specify a database to access the collection.')
 
         collection_name = (
             objtype.__name__.lower()
-            if objtype.collection_name is None
-            else objtype.collection_name
+            if self.collection_name is None
+            else self.collection_name
         )
 
         return objtype.db[collection_name]

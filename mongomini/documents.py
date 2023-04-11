@@ -9,18 +9,11 @@ from .exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from .utils import include, CollectionDescriptor
 
 
-class MetaDataclass(type):
-
-    def __new__(cls, name, bases, attrs):
-        new_cls = super().__new__(cls, name, bases, attrs)
-        new_cls = dataclass(kw_only=True)(new_cls)
-        return new_cls
-
-
-class Document(metaclass=MetaDataclass):
-    db: ClassVar[AsyncIOMotorDatabase | None] = None
+@dataclass(kw_only=True)
+class Document:
+    db: ClassVar[AsyncIOMotorDatabase]
     collection: ClassVar[AsyncIOMotorCollection] = CollectionDescriptor()
-    collection_name: ClassVar[str | None] = None
+    collection_name: ClassVar[str]
 
     _id: ObjectId = field(default_factory=ObjectId)
 
