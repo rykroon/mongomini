@@ -3,31 +3,10 @@ from enum import StrEnum
 from typing import Any, Literal
 
 
-class Query:
-
-    def __init__(self, *args, **kwargs):
-        ...
-
-    def __and__(self, other):
-        ...
-
-    def __or__(self, other):
-        ...
-
-    def __neg__(self):
-        ...
-
-
-def kwargs_to_exprs(**kwargs):
-    expressions = None
-    for k, v in kwargs.items():
-        field, op = k.split('__') if '__' in k else (k, FieldOperator.EQUAL.value)
-        expr = Expression(field=field, op=op, value=v)
-        if expressions is None:
-            expressions = expr
-        else:
-            expressions = expressions & expr
-    return expressions
+"""
+    Potentially move this code into a separate project
+    MongoDB Query Builder mqb
+"""
 
 
 class FieldOperator(StrEnum):
@@ -62,13 +41,8 @@ OR = '$or'
 NOT = '$not'
 
 
-@dataclass(init=False, repr=False, eq=False)
 class Expression(dict):
-    lhs: str = field(init=False, repr=False, compare=False)
-    rhs: Any = field(init=False, repr=False, compare=False)
-
-    def __post_init__(self):
-        self[self.lhs] = self.rhs
+    ...
 
 
 @dataclass(repr=False)
@@ -78,16 +52,11 @@ class FieldExpression(Expression):
     value: Any
     neg: bool = False
 
-    @property
-    def lhs(self):
-        return self.field
-
-    @property
-    def rhs(self):
-        rhs = {self.op: self.value}
+    def __post_init__(self):
         if not self.neg:
-            return rhs
-        return {NOT: rhs}
+            self[self.field] = {self.op: self.value}
+        else:
+            self[self.field] = {NOT: {self.op: self.value}}
 
     def __and__(self, other):
         if not isinstance(other, FieldExpression):
@@ -110,14 +79,6 @@ class LogicalExpression(dict):
 
     def __post_init__(self):
         self[self.op] = self.expressions
-    
-    @property
-    def lhs(self):
-        return self.op
-
-    @property
-    def rhs(self):
-        return self.expressions
 
     def __and__(self, other):
         if not isinstance(other, Expression):
