@@ -1,19 +1,41 @@
 from dataclasses import asdict, dataclass, field, fields
-from typing import ClassVar, Any
+from types import SimpleNamespace
+from typing import ClassVar, Any, TypedDict, NotRequired
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorCursor, AsyncIOMotorDatabase, AsyncIOMotorCollection
+from motor.motor_asyncio import AsyncIOMotorCursor, AsyncIOMotorDatabase
 import pymongo
 
 from .exceptions import ObjectDoesNotExist, MultipleObjectsReturned
-from .utils import include, CollectionDescriptor
+from .utils import include
 
 
-@dataclass(kw_only=True)
-class Document:
-    db: ClassVar[AsyncIOMotorDatabase]
-    collection: ClassVar[AsyncIOMotorCollection] = CollectionDescriptor()
-    collection_name: ClassVar[str]
+class Meta(TypedDict):
+    db: AsyncIOMotorDatabase
+    collection_name: NotRequired[str]
+
+
+class DocumentMeta(type):
+
+    def __new__(cls, name, bases, attrs):
+        mro = super().__new__(cls, name, bases, {}).mro()[1:-1]
+        
+        meta = {}
+        for base in reversed(mro):
+            if not isinstance(base, cls):
+                continue
+            meta.update(base._meta)
+
+        meta.update(attrs.pop('meta', {}))
+        attrs['_meta'] = meta
+
+        new_cls = super().__new__(cls, name, bases, attrs)
+        # new_cls = dataclass(kw_only=True)(new_cls)
+        return new_cls
+
+
+class Document(metaclass=DocumentMeta):
+    meta: ClassVar[Meta]
 
     _id: ObjectId = field(default_factory=ObjectId)
 
