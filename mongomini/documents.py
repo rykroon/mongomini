@@ -1,53 +1,27 @@
 from dataclasses import asdict, dataclass, field, fields
-from types import SimpleNamespace
-from typing import ClassVar, Any, TypedDict, NotRequired
+from typing import ClassVar, Any
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorCursor, AsyncIOMotorDatabase
+from motor.motor_asyncio import AsyncIOMotorCursor
 import pymongo
 
 from .exceptions import ObjectDoesNotExist, MultipleObjectsReturned
+from .meta import DocumentMeta
 from .utils import include
 
 
-class Meta(TypedDict):
-    db: AsyncIOMotorDatabase
-    collection_name: NotRequired[str]
-
-
-class DocumentMeta(type):
-
-    def __new__(cls, name, bases, attrs):
-        mro = super().__new__(cls, name, bases, {}).mro()[1:-1]
-        
-        meta = {}
-        for base in reversed(mro):
-            if not isinstance(base, cls):
-                continue
-            meta.update(base._meta)
-
-        meta.update(attrs.pop('meta', {}))
-        attrs['_meta'] = meta
-
-        new_cls = super().__new__(cls, name, bases, attrs)
-        # new_cls = dataclass(kw_only=True)(new_cls)
-        return new_cls
-
-
 class Document(metaclass=DocumentMeta):
-    meta: ClassVar[Meta]
-
+    
+    Settings: ClassVar[type]
     _id: ObjectId = field(default_factory=ObjectId)
-
+ 
     @classmethod
     def from_document(cls, document: dict[str, Any]):
         init_fields = []
         non_init_fields = []
         for field in fields(cls):
-            if field.init:
-                init_fields.append(field.name)
-            else:
-                non_init_fields.append(field.name)
+            # fancy trick to append the field name to the applicable list.
+            (non_init_fields, init_fields)[field.init].append(field.name)
 
         init_kwargs = {f: document[f] for f in init_fields if f in document}
         obj = cls(**init_kwargs)
@@ -61,7 +35,7 @@ class Document(metaclass=DocumentMeta):
 
     @classmethod
     def find(cls, query: dict[str, Any]) -> AsyncIOMotorCursor:
-        cursor = cls.collection.find(filter=query)
+        cursor = cls._meta.collection.find(filter=query)
         return DocumentCursor(cls, cursor)
 
     @classmethod
@@ -86,7 +60,7 @@ class Document(metaclass=DocumentMeta):
         if document['_id'] is None:
             del document['_id']
 
-        result = await self.__class__.collection.insert_one(document)
+        result = await self.__class__._meta.collection.insert_one(document)
         if self._id is None:
             self._id = result.inserted_id
 
@@ -95,14 +69,14 @@ class Document(metaclass=DocumentMeta):
     async def update(self, *fields):
         dict_factory = include(*fields) if fields else dict
         document = asdict(self, dict_factory=dict_factory)
-        result = await self.__class__.collection.update_one(
+        result = await self.__class__._meta.collection.update_one(
             filter={"_id": self._id}, update={"$set": document}
         )
         assert result.matched_count == 1
         assert result.modified_count == 1
 
     async def delete(self):
-        result = await self.__class__.collection.delete_one({"_id": self._id})
+        result = await self.__class__._meta.collection.delete_one({"_id": self._id})
         assert result.deleted_count == 1
 
 
