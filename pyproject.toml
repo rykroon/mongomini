@@ -38,7 +38,7 @@ dependencies = [
   "pytest-cov",
 ]
 [tool.hatch.envs.default.scripts]
-cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=test --cov=tests {args}"
+cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=mongomini --cov=tests {args}"
 no-cov = "cov --no-cov {args}"
 
 [[tool.hatch.envs.test.matrix]]
@@ -48,7 +48,7 @@ python = ["310", "311"]
 branch = true
 parallel = true
 omit = [
-  "test/__about__.py",
+  "mongomini/__about__.py",
 ]
 
 [tool.coverage.report]
