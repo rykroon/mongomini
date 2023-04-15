@@ -7,7 +7,7 @@ from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorDatabase
 @dataclass(kw_only=True, eq=False, repr=False)
 class Meta:
     db: AsyncIOMotorDatabase | None = None
-    collection_name: str | None = None
+    collection_name: str = ""
     abstract: bool = False
 
     init_fields: list[str] = field(default_factory=list)
