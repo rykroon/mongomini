@@ -11,12 +11,12 @@ from .utils import include
 
 
 class Document(metaclass=DocumentMeta):
-    
+
     class Settings:
         abstract = True
 
     _id: ObjectId = field(default_factory=ObjectId)
- 
+
     @classmethod
     def from_document(cls, document: dict[str, Any]):
         init_kwargs = {f: document[f] for f in cls._meta.init_fields if f in document}

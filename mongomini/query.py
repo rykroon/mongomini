@@ -96,13 +96,13 @@ class LogicalExpression(dict):
             return LogicalExpression(
                 op=AND, expressions=[*self.expressions, *other.expressions]
             )
-        
+
         return LogicalExpression(op=AND, expressions=[self, other])
 
     def __or__(self, other):
         if not isinstance(other, Expression):
             return NotImplemented
-        
+
         if isinstance(other, FieldExpression):
             if self.op == OR:
                 return LogicalExpression(

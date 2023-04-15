@@ -41,7 +41,7 @@ class DocumentMeta(type):
         # Add attributes from Settings class.
         if hasattr(settings, 'abstract'):
             meta.abstract = settings.abstract
-        
+
         if hasattr(settings, 'collection_name'):
             meta.collection_name = settings.collection_name
 
@@ -56,7 +56,7 @@ class DocumentMeta(type):
         new_cls = super().__new__(metacls, name, bases, attrs)
         new_cls = dataclass(kw_only=True)(new_cls)
         return new_cls
-    
+
     def __init__(self, name, bases, attrs):
         for field in fields(self):
             if field.init:
