@@ -1,7 +1,7 @@
 
-class ObjectDoesNotExist(Exception):
+class ObjectDoesNotExist(LookupError):
     ...
 
 
-class MultipleObjectsReturned(Exception):
+class MultipleObjectsReturned(LookupError):
     ...
