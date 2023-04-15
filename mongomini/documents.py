@@ -76,7 +76,7 @@ class Document(metaclass=DocumentMeta):
         assert result.deleted_count == 1
 
 
-@dataclass
+@dataclass(eq=False)
 class DocumentCursor:
 
     class_: type[Document]
