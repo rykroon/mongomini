@@ -35,6 +35,7 @@ path = "mongomini/__about__.py"
 [tool.hatch.envs.default]
 dependencies = [
   "pytest",
+  "pytest-asyncio",
   "pytest-cov",
 ]
 [tool.hatch.envs.default.scripts]
