@@ -1,14 +1,17 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field, fields
 from functools import cached_property
 
 from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorDatabase
 
 
-@dataclass(kw_only=True, eq=False)
+@dataclass(kw_only=True, eq=False, repr=False)
 class Meta:
     db: AsyncIOMotorDatabase | None = None
     collection_name: str | None = None
     abstract: bool = False
+
+    init_fields: list[str] = field(default_factory=list)
+    non_init_fields: list[str] = field(default_factory=list)
 
     @cached_property
     def collection(self) -> AsyncIOMotorCollection | None:
@@ -46,7 +49,7 @@ class DocumentMeta(type):
             meta.db = settings.db
 
         # Check to make sure everything is kosher.
-        if meta.abstract:
+        if not meta.abstract:
             assert meta.db is not None, "A database must be specified."
 
         attrs['_meta'] = meta
@@ -54,6 +57,13 @@ class DocumentMeta(type):
         new_cls = dataclass(kw_only=True)(new_cls)
         return new_cls
     
+    def __init__(self, name, bases, attrs):
+        for field in fields(self):
+            if field.init:
+                self._meta.init_fields.append(field.name)
+            else:
+                self._meta.non_init_fields.append(field.name)
+
     def __call__(self, *args, **kwargs):
         if self._meta.abstract:
             raise TypeError(f"Can't instantiate abstract class '{self.__name__}'.")

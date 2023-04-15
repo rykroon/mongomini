@@ -1,4 +1,4 @@
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from bson import ObjectId
@@ -19,16 +19,10 @@ class Document(metaclass=DocumentMeta):
  
     @classmethod
     def from_document(cls, document: dict[str, Any]):
-        init_fields = []
-        non_init_fields = []
-        for field in fields(cls):
-            # fancy trick to append the field name to the applicable list.
-            (non_init_fields, init_fields)[field.init].append(field.name)
-
-        init_kwargs = {f: document[f] for f in init_fields if f in document}
+        init_kwargs = {f: document[f] for f in cls._meta.init_fields if f in document}
         obj = cls(**init_kwargs)
 
-        for f in non_init_fields:
+        for f in cls._meta.non_init_fields:
             if f not in document:
                 continue
             setattr(obj, f, document[f])
