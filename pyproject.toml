@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "mongomini"
 description = ''
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 license = "MIT"
 keywords = []
 authors = [
