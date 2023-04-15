@@ -1,5 +1,5 @@
 from dataclasses import asdict, dataclass, field, fields
-from typing import ClassVar, Any
+from typing import Any
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorCursor
@@ -12,7 +12,9 @@ from .utils import include
 
 class Document(metaclass=DocumentMeta):
     
-    Settings: ClassVar[type]
+    class Settings:
+        abstract = True
+
     _id: ObjectId = field(default_factory=ObjectId)
  
     @classmethod
