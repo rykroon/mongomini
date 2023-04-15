@@ -58,6 +58,9 @@ class DocumentMeta(type):
         return new_cls
 
     def __init__(self, name, bases, attrs):
+        if self._meta.abstract:
+            return
+
         for field in fields(self):
             if field.init:
                 self._meta.init_fields.append(field.name)
