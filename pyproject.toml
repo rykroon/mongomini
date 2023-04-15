@@ -4,7 +4,6 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mongomini"
-version = "0.2.0"
 description = ''
 readme = "README.md"
 requires-python = ">=3.7"
@@ -31,7 +30,7 @@ Issues = "https://github.com/rykroon/mongomini/issues"
 Source = "https://github.com/rykroon/mongomini"
 
 [tool.hatch.version]
-path = "test/__about__.py"
+path = "mongomini/__about__.py"
 
 [tool.hatch.envs.default]
 dependencies = [
