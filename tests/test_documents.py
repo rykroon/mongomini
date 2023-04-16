@@ -1,61 +1,81 @@
 import pytest
+import pytest_asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 from mongomini import Document
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def database():
     client = AsyncIOMotorClient()
     await client.drop_database('test')
     return client['test']
 
 
-@pytest.mark.asyncio
-def test_abstract_one(database):
+def test_abstract_inheritance(database):
     """
-        A non abstract class that inherits from an abstract class.
+        The abstract property should not be inherited.
     """
 
-    class Abstract(Document):
-        class Settings:
-            abstract = True
-    
-    with pytest.raises(TypeError):
-        Abstract()
-    
-    class NotAbstract(Abstract):
+    class Foo(Document):
         class Settings:
             db = database
     
-    NotAbstract()
+    assert Foo._meta.abstract is False
 
-
-@pytest.mark.asyncio
-def test_abstract_two(database):
-
-    """
-        An abstract class that inherits from a non abstract class.
-    """
-
-    class NotAbstract(Document):
-        class Settings:
-            db= database
-    
-    NotAbstract()
-
-    class Abstract(NotAbstract):
+    class Bar(Foo):
         class Settings:
             abstract = True
     
+    assert Bar._meta.abstract is True
+
+    class Baz(Bar):
+        ...
+    
+    assert Baz._meta.abstract is False
+
+
+def test_database_inheritance(database):
+
+    class Foo(Document):
+        class Settings:
+            db = database
+        
+    class Bar(Foo):
+        ...
+    
+    assert Foo._meta.db == Bar._meta.db
+
+
+def test_collection_name(database):
+    class Foo(Document):
+        class Settings:
+            db = database
+    
+    assert Foo._meta.collection_name == 'foo'
+    assert Foo._meta.collection.name == 'foo'
+
+
+def test_custom_collection_name(database):
+    class Foo(Document):
+        class Settings:
+            db = database
+            collection_name = "foobar"
+    
+    assert Foo._meta.collection_name == "foobar"
+    assert Foo._meta.collection.name == "foobar"
+
+
+def test_cannot_instantiate_abstract_class():
+
+    class Foo(Document):
+        class Settings:
+            abstract = True
+
     with pytest.raises(TypeError):
-        Abstract()
+        Foo()
 
 
-
-def test_database_inheritance():
-    ...
-
-
-def test_collection_name():
-    ...
-
+def test_non_abstract_class_without_db():
+    with pytest.raises(AssertionError):
+        class Foo(Document):
+            ...
