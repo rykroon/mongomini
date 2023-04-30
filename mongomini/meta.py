@@ -23,8 +23,6 @@ class Meta:
 class DocumentMeta(type):
 
     def __new__(metacls, name, bases, attrs):
-        settings: type | None = attrs.pop('Settings', None)
-
         # loop through bases to get parent db.
         parent_db = None
         for base in reversed(bases):
@@ -37,6 +35,8 @@ class DocumentMeta(type):
             collection_name=name.lower(),
             db=parent_db
         )
+
+        settings: type | None = attrs.pop('Settings', None)
 
         # Add attributes from Settings class.
         if hasattr(settings, 'abstract'):
