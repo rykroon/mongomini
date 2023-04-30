@@ -7,7 +7,7 @@ import pymongo
 
 from .exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from .meta import DocumentMeta
-from .utils import include
+from .utils import include, get_init_field_names, get_non_init_field_names
 
 
 class Document(metaclass=DocumentMeta):
@@ -19,10 +19,10 @@ class Document(metaclass=DocumentMeta):
 
     @classmethod
     def from_document(cls, document: dict[str, Any]):
-        init_kwargs = {f: document[f] for f in cls._meta.init_fields if f in document}
+        init_kwargs = {f: document[f] for f in get_init_field_names(cls) if f in document}
         obj = cls(**init_kwargs)
 
-        for f in cls._meta.non_init_fields:
+        for f in get_non_init_field_names(cls):
             if f not in document:
                 continue
             setattr(obj, f, document[f])

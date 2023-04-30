@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass
 from functools import cached_property
 
 from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorDatabase
@@ -9,9 +9,6 @@ class Meta:
     db: AsyncIOMotorDatabase | None = None
     collection_name: str = ""
     abstract: bool = False
-
-    init_fields: list[str] = field(default_factory=list)
-    non_init_fields: list[str] = field(default_factory=list)
 
     @cached_property
     def collection(self) -> AsyncIOMotorCollection | None:
@@ -56,16 +53,6 @@ class DocumentMeta(type):
         new_cls = super().__new__(metacls, name, bases, attrs)
         new_cls = dataclass(kw_only=True)(new_cls)
         return new_cls
-
-    def __init__(self, name, bases, attrs):
-        if self._meta.abstract:
-            return
-
-        for field in fields(self):
-            if field.init:
-                self._meta.init_fields.append(field.name)
-            else:
-                self._meta.non_init_fields.append(field.name)
 
     def __call__(self, *args, **kwargs):
         if self._meta.abstract:
