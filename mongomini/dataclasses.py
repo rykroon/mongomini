@@ -9,7 +9,7 @@ def dataclass(db: AsyncIOMotorDatabase, collection_name: str = "", **kwargs):
     def wrapper(cls):
         collection = db[collection_name or cls.__name__.lower()]
         setattr(cls, f"_{cls.__name__}__collection", collection)
-        new_cls = stdlib_dataclass(**kwargs)(cls)
+        new_cls = stdlib_dataclass(kw_only=True, **kwargs)(cls)
         # The only requirement is that there is a field called "_id".
         assert any(f.name == '_id' for f in fields(new_cls)), "Missing '_id' field."
         return new_cls
