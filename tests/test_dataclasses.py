@@ -2,7 +2,9 @@ from bson import ObjectId
 import pytest
 import pytest_asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
-from mongomini.dataclasses import documentclass, insert_one, update_one, delete_one
+from mongomini.dataclasses import (
+    documentclass, insert_one, update_one, delete_one, find_one, find
+)
 
 
 @pytest_asyncio.fixture
@@ -87,3 +89,27 @@ async def test_delete(database):
     await delete_one(f)
 
     assert await database['foo'].find_one({"_id": f._id}) is None
+
+
+@pytest.mark.asyncio
+async def test_non_documentclasses_in_documentclass_functions():
+    class Foo:
+        ...
+
+    with pytest.raises(TypeError):
+        f = Foo()
+        await insert_one(f)
+    
+    with pytest.raises(TypeError):
+        f = Foo()
+        await update_one(f)
+    
+    with pytest.raises(TypeError):
+        f = Foo()
+        await delete_one(f)
+
+    with pytest.raises(TypeError):
+        await find_one(Foo, {})
+    
+    with pytest.raises(TypeError):
+        find(Foo, {})
