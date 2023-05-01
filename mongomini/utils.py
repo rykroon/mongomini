@@ -27,6 +27,10 @@ def get_non_init_field_names(cls: type) -> list[str]:
 _COLLECTION = '__mongomini_collection__'
 
 
+def has_collection(obj):
+    return hasattr(obj, _COLLECTION)
+
+
 def get_collection(obj):
     return getattr(obj, _COLLECTION)
 

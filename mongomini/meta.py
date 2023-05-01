@@ -1,31 +1,31 @@
 from dataclasses import dataclass
-from .utils import get_collection, set_collection
+from .dataclasses import documentclass
+from .utils import has_collection
 
 
 class DocumentMeta(type):
 
     def __new__(metacls, name, bases, attrs):
-        settings: type | None = attrs.pop('Settings', None)
         new_cls = super().__new__(metacls, name, bases, attrs)
 
-        # loop through bases to get parent db.
-        parent_db = None
-        for base in reversed(bases):
-            if not isinstance(base, metacls):
-                continue
+        if name == 'Document' and not bases:
+            # if Base Document, then just make a regular dataclass.
+            return dataclass(new_cls)
 
-            parent_collection = get_collection(base)
-            if parent_collection is not None:
-                parent_db = parent_collection.database
+        settings: type | None = attrs.pop('Settings', None)
 
-        db = getattr(settings, 'db', parent_db)
-        collection_name = getattr(settings, 'collection_name', name.lower())
-        set_collection(new_cls, None if db is None else db[collection_name])
-        new_cls = dataclass(kw_only=True)(new_cls)
+        db = getattr(settings, 'db', None)
+        collection_name = getattr(settings, 'collection_name', "")
+        repr = getattr(settings, 'repr', True)
+        eq = getattr(settings, 'eq', True)
+        order = getattr(settings, 'order', False)
+
+        new_cls = documentclass(
+            db=db, collection_name=collection_name, repr=repr, eq=eq, order=order
+        )(new_cls)
         return new_cls
 
     def __call__(self, *args, **kwargs):
-        collection = get_collection(self)
-        if collection is None:
+        if not has_collection(self):
             raise TypeError(f"Can't instantiate abstract class '{self.__name__}'.")
         return super().__call__(*args, **kwargs)

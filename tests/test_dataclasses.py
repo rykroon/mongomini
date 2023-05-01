@@ -2,7 +2,7 @@ from bson import ObjectId
 import pytest
 import pytest_asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
-from mongomini.dataclasses import dataclass, insert_one, update_one, delete_one
+from mongomini.dataclasses import documentclass, insert_one, update_one, delete_one
 
 
 @pytest_asyncio.fixture
@@ -14,18 +14,18 @@ async def database():
 
 def test_dataclass_creation(database):
     with pytest.raises(AssertionError):
-        @dataclass(db=database)
+        @documentclass(db=database)
         class Foo:
             ...
     
-    @dataclass(db=database)
+    @documentclass(db=database)
     class Foo:
         _id: ObjectId | None = None
 
 
 @pytest.mark.asyncio
 async def test_insert(database):
-    @dataclass(db=database)
+    @documentclass(db=database)
     class Foo:
         _id: ObjectId | None = None
     
@@ -36,7 +36,7 @@ async def test_insert(database):
 
 @pytest.mark.asyncio
 async def test_update(database):
-    @dataclass(db=database)
+    @documentclass(db=database)
     class Foo:
         _id: ObjectId | None = None
         name: str = ""
@@ -53,7 +53,7 @@ async def test_update(database):
 
 @pytest.mark.asyncio
 async def test_delete(database):
-    @dataclass(db=database)
+    @documentclass(db=database)
     class Foo:
         _id: ObjectId | None = None
     
