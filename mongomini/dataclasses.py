@@ -2,7 +2,7 @@ from dataclasses import dataclass, asdict, fields
 from functools import lru_cache
 
 from motor.motor_asyncio import AsyncIOMotorDatabase, AsyncIOMotorCursor
-from pymongo import ASCENDING, DESCENDING
+import pymongo
 
 
 _COLLECTION = '__mongomini_collection__'
@@ -69,7 +69,7 @@ def exclude(*fields: str):
 
 async def insert_one(obj, /):
     if not _is_documentclass_instance(obj):
-        raise TypeError
+        raise TypeError("Must be called with a documentclass instance.")
 
     document = asdict(obj)
     if document['_id'] is None:
@@ -83,7 +83,7 @@ async def insert_one(obj, /):
 
 async def update_one(obj, /, *fields):
     if not _is_documentclass_instance(obj):
-        raise TypeError
+        raise TypeError("Must be called with a documentclass instance.")
 
     dict_factory = include(*fields) if fields else dict
     document = asdict(obj, dict_factory=dict_factory)
@@ -93,7 +93,7 @@ async def update_one(obj, /, *fields):
 
 async def delete_one(obj, /):
     if not _is_documentclass_instance(obj):
-        raise TypeError
+        raise TypeError("Must be called with a documentclass instance.")
 
     collection = getattr(obj, _COLLECTION)
     return await collection.delete_one({"_id": obj._id})
@@ -101,7 +101,7 @@ async def delete_one(obj, /):
 
 async def find_one(cls, query):
     if not is_documentclass(cls):
-        raise TypeError
+        raise TypeError("Must be called with a documentclass type or instance.")
 
     collection = getattr(cls, _COLLECTION)
     return await collection.find_one(query)
@@ -109,7 +109,7 @@ async def find_one(cls, query):
 
 def find(cls, query):
     if not is_documentclass(cls):
-        raise TypeError
+        raise TypeError("Must be called with a documentclass type or instance.")
     collection = getattr(cls, _COLLECTION)
     cursor = collection.find(filter=query)
     return DocumentCursor(cls, cursor)
@@ -129,7 +129,7 @@ def _get_init_and_non_init_fields(cls: type) -> tuple[list[str], list[str]]:
 
 def from_document(cls, document: dict):
     if not is_documentclass(cls):
-        raise TypeError
+        raise TypeError("Must be called with a documentclass type or instance.")
 
     init_fields, non_init_fields = _get_init_and_non_init_fields(cls)
     init_kwargs = {f: document[f] for f in init_fields if f in document}
@@ -164,9 +164,9 @@ class DocumentCursor:
 
     def sort(self, *fields: str):
         field_list = [
-            (f, ASCENDING)
+            (f, pymongo.ASCENDING)
             if not f.startswith('-')
-            else (f[1:], DESCENDING)
+            else (f[1:], pymongo.DESCENDING)
             for f in fields
         ]
         self.cursor.sort(field_list)
