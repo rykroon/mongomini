@@ -3,9 +3,8 @@ from typing import Any
 
 from bson import ObjectId
 
-from .cursors import DocumentCursor
 from .dataclasses import (
-    documentclass, delete_one, get_collection, insert_one, is_documentclass, update_one
+    documentclass, delete_one, insert_one, is_documentclass, update_one, find
 )
 from .exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 
@@ -46,10 +45,8 @@ class Document(metaclass=DocumentMeta):
     _id: ObjectId | None = None
 
     @classmethod
-    def find(cls, query: dict[str, Any]) -> DocumentCursor:
-        collection = get_collection(cls)
-        cursor = collection.find(filter=query)
-        return DocumentCursor(cls, cursor)
+    def find(cls, query: dict[str, Any]):
+        return find(cls, query)
 
     @classmethod
     async def get(cls, query: dict[str, Any]):
