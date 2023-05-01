@@ -4,17 +4,29 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from .utils import include, get_collection, set_collection
 
 
-def dataclass(db: AsyncIOMotorDatabase, collection_name: str = "", **kwargs):
+def dataclass(
+    cls=None, /, *, db: AsyncIOMotorDatabase | None = None, collection_name: str = "", **kwargs
+):
 
-    def wrapper(cls):
-        collection = None if db is None else db[collection_name or cls.__name__.lower()]
-        set_collection(cls, collection)
-        new_cls = stdlib_dataclass(kw_only=True, **kwargs)(cls)
-        # The only requirement is that there is a field called "_id".
-        assert any(f.name == '_id' for f in fields(new_cls)), "Missing '_id' field."
-        return new_cls
+    def wrap(cls):
+        return _process_class(cls, db, collection_name, **kwargs)
 
-    return wrapper
+    # See if we're being called as @dataclass or @dataclass().
+    if cls is None:
+        # We're called with parens.
+        return wrap
+
+    # We're called as @dataclass without parens.
+    return wrap(cls)
+
+
+def _process_class(cls, db, collection_name, **kwargs):
+    collection = None if db is None else db[collection_name or cls.__name__.lower()]
+    set_collection(cls, collection)
+    new_cls = stdlib_dataclass(kw_only=True, **kwargs)(cls)
+    # The only requirement is that there is a field called "_id".
+    assert any(f.name == '_id' for f in fields(new_cls)), "Missing '_id' field."
+    return new_cls
 
 
 async def insert_one(obj, /):
