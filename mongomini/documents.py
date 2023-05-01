@@ -2,36 +2,51 @@ from dataclasses import dataclass
 from typing import Any
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorCursor
-import pymongo
 
-from .dataclasses import insert_one, update_one, delete_one
-from .exceptions import ObjectDoesNotExist, MultipleObjectsReturned
-from .meta import DocumentMeta
-from .utils import get_init_field_names, get_non_init_field_names, get_collection
+from .cursors import DocumentCursor
+from .dataclasses import (
+    documentclass, delete_one, get_collection, insert_one, is_documentclass, update_one
+)
+from .exceptions import MultipleObjectsReturned, ObjectDoesNotExist
+
+
+class DocumentMeta(type):
+
+    def __new__(metacls, name, bases, attrs):
+        new_cls = super().__new__(metacls, name, bases, attrs)
+
+        if name == 'Document' and not bases:
+            # if Base Document, then just make a regular dataclass.
+            return dataclass(new_cls)
+
+        settings: type | None = attrs.pop('Settings', None)
+
+        db = getattr(settings, 'db', None)
+        collection_name = getattr(settings, 'collection_name', "")
+        repr = getattr(settings, 'repr', True)
+        eq = getattr(settings, 'eq', True)
+        order = getattr(settings, 'order', False)
+
+        new_cls = documentclass(
+            db=db, collection_name=collection_name, repr=repr, eq=eq, order=order
+        )(new_cls)
+        return new_cls
+
+    def __call__(self, *args, **kwargs):
+        if not is_documentclass(self):
+            raise TypeError(f"Can't instantiate abstract class '{self.__name__}'.")
+        return super().__call__(*args, **kwargs)
 
 
 class Document(metaclass=DocumentMeta):
 
     class Settings:
-        abstract = True
+        ...
 
     _id: ObjectId | None = None
 
     @classmethod
-    def from_document(cls, document: dict[str, Any]):
-        init_kwargs = {f: document[f] for f in get_init_field_names(cls) if f in document}
-        obj = cls(**init_kwargs)
-
-        for f in get_non_init_field_names(cls):
-            if f not in document:
-                continue
-            setattr(obj, f, document[f])
-
-        return obj
-
-    @classmethod
-    def find(cls, query: dict[str, Any]) -> AsyncIOMotorCursor:
+    def find(cls, query: dict[str, Any]) -> DocumentCursor:
         collection = get_collection(cls)
         cursor = collection.find(filter=query)
         return DocumentCursor(cls, cursor)
@@ -61,32 +76,3 @@ class Document(metaclass=DocumentMeta):
 
     async def delete(self):
         return await delete_one(self)
-
-
-@dataclass(eq=False)
-class DocumentCursor:
-
-    class_: type[Document]
-    cursor: AsyncIOMotorCursor
-
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        document = await anext(self.cursor)
-        return self.class_.from_document(document)
-
-    def limit(self, limit: int):
-        self.cursor.limit(limit)
-
-    def skip(self, skip: int):
-        self.cursor.skip(skip)
-
-    def sort(self, *fields: str):
-        field_list = [
-            (f, pymongo.ASCENDING)
-            if not f.startswith('-')
-            else (f[1:], pymongo.DESCENDING)
-            for f in fields
-        ]
-        self.cursor.sort(field_list)

@@ -1,7 +1,10 @@
 from dataclasses import dataclass, asdict, fields
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from .utils import include, get_collection, set_collection, has_collection
+from .utils import include, get_init_field_names, get_non_init_field_names
+
+
+_COLLECTION = '__mongomini_collection__'
 
 
 def documentclass(
@@ -26,13 +29,10 @@ def documentclass(
 
 
 def _process_class(cls, db, collection_name, repr, eq, order):
-    """
-        ideas
-        use cls.mro() to get parent_db if db is None.
-    """
+    # get parent db if db is None.
     if db is None:
         for base in reversed(cls.mro()):
-            if not has_collection(base):
+            if not is_documentclass(base):
                 continue
             db = get_collection(base)
 
@@ -45,7 +45,27 @@ def _process_class(cls, db, collection_name, repr, eq, order):
     return new_cls
 
 
+def is_documentclass(obj):
+    cls = obj if isinstance(obj, type) else type(obj)
+    return hasattr(cls, _COLLECTION)
+
+
+def _is_document_instance(obj):
+    return hasattr(type(obj), _COLLECTION)
+
+
+def get_collection(obj):
+    return getattr(obj, _COLLECTION)
+
+
+def set_collection(obj, collection):
+    setattr(obj, _COLLECTION, collection)
+
+
 async def insert_one(obj, /):
+    if not _is_document_instance(obj):
+        raise TypeError
+
     document = asdict(obj)
     if document['_id'] is None:
         del document['_id']
@@ -57,6 +77,9 @@ async def insert_one(obj, /):
 
 
 async def update_one(obj, /, *fields):
+    if not _is_document_instance(obj):
+        raise TypeError
+
     dict_factory = include(*fields) if fields else dict
     document = asdict(obj, dict_factory=dict_factory)
     collection = get_collection(obj)
@@ -64,13 +87,35 @@ async def update_one(obj, /, *fields):
 
 
 async def delete_one(obj, /):
+    if not _is_document_instance(obj):
+        raise TypeError
+
     collection = get_collection(obj)
     return await collection.delete_one({"_id": obj._id})
 
 
 async def find_one(cls, query):
-    ...
+    if not is_documentclass(cls):
+        raise TypeError
+    
+    collection = get_collection(cls)
+    return await collection.find_one(query)
 
 
 def find(cls, query):
     ...
+
+
+def from_document(cls, document: dict):
+    if not is_documentclass(cls):
+        raise TypeError
+
+    init_kwargs = {f: document[f] for f in get_init_field_names(cls) if f in document}
+    obj = cls(**init_kwargs)
+
+    for f in get_non_init_field_names(cls):
+        if f not in document:
+            continue
+        setattr(obj, f, document[f])
+
+    return obj
