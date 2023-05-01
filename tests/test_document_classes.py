@@ -11,27 +11,9 @@ async def database():
     return client['test']
 
 
-def test_abstract_inheritance(database):
-    """
-        The abstract property should not be inherited.
-    """
-
-    class Foo(Document):
-        class Settings:
-            db = database
-    
-    assert Foo._meta.abstract is False
-
-    class Bar(Foo):
-        class Settings:
-            abstract = True
-    
-    assert Bar._meta.abstract is True
-
-    class Baz(Bar):
-        ...
-    
-    assert Baz._meta.abstract is False
+def test_document_with_no_db():
+    with pytest.raises(TypeError):
+        Document()
 
 
 def test_database_inheritance(database):
@@ -43,7 +25,7 @@ def test_database_inheritance(database):
     class Bar(Foo):
         ...
     
-    assert Foo._meta.db == Bar._meta.db
+    assert Foo.__mongomini_collection__.database == Bar.__mongomini_collection__.database
 
 
 def test_collection_name(database):
@@ -51,8 +33,7 @@ def test_collection_name(database):
         class Settings:
             db = database
     
-    assert Foo._meta.collection_name == 'foo'
-    assert Foo._meta.collection.name == 'foo'
+    assert Foo.__mongomini_collection__.name == 'foo'
 
 
 def test_custom_collection_name(database):
@@ -61,21 +42,5 @@ def test_custom_collection_name(database):
             db = database
             collection_name = "foobar"
     
-    assert Foo._meta.collection_name == "foobar"
-    assert Foo._meta.collection.name == "foobar"
+    assert Foo.__mongomini_collection__.name == "foobar"
 
-
-def test_cannot_instantiate_abstract_class():
-
-    class Foo(Document):
-        class Settings:
-            abstract = True
-
-    with pytest.raises(TypeError):
-        Foo()
-
-
-def test_non_abstract_class_without_db():
-    with pytest.raises(AssertionError):
-        class Foo(Document):
-            ...
