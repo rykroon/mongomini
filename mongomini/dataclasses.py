@@ -116,26 +116,29 @@ def find(cls, query):
 
 
 @lru_cache
-def _get_init_field_names(cls: type) -> list[str]:
-    return [f.name for f in fields(cls) if f.init]
-
-
-@lru_cache
-def _get_non_init_field_names(cls: type) -> list[str]:
-    return [f.name for f in fields(cls) if not f.init]
+def _get_init_and_non_init_fields(cls: type) -> tuple[list[str], list[str]]:
+    init_fields = []
+    non_init_fields = []
+    for field in fields(cls):
+        if field.init:
+            init_fields.append(field.name)
+        else:
+            non_init_fields.append(field.name)
+    return init_fields, non_init_fields
 
 
 def from_document(cls, document: dict):
     if not is_documentclass(cls):
         raise TypeError
 
-    init_kwargs = {f: document[f] for f in _get_init_field_names(cls) if f in document}
+    init_fields, non_init_fields = _get_init_and_non_init_fields(cls)
+    init_kwargs = {f: document[f] for f in init_fields if f in document}
     obj = cls(**init_kwargs)
 
-    for f in _get_non_init_field_names(cls):
-        if f not in document:
+    for field in non_init_fields:
+        if field not in document:
             continue
-        setattr(obj, f, document[f])
+        setattr(obj, field, document[field])
 
     return obj
 
