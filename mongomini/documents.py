@@ -2,9 +2,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorCursor
+import pymongo
 
 from .dataclasses import (
-    documentclass, delete_one, insert_one, is_documentclass, update_one, find
+    documentclass, delete_one, fromdict, insert_one, is_documentclass, update_one, find
 )
 from .exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 
@@ -46,7 +48,8 @@ class Document(metaclass=DocumentMeta):
 
     @classmethod
     def find(cls, query: dict[str, Any]):
-        return find(cls, query)
+        cursor = find(cls, query)
+        return DocumentCursor(cls, cursor)
 
     @classmethod
     async def get(cls, query: dict[str, Any]):
@@ -73,3 +76,32 @@ class Document(metaclass=DocumentMeta):
 
     async def delete(self):
         return await delete_one(self)
+
+
+@dataclass(eq=False, slots=True, frozen=True)
+class DocumentCursor:
+
+    document_class: type
+    cursor: AsyncIOMotorCursor
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        document = await anext(self.cursor)
+        return fromdict(self.document_class, document)
+
+    def limit(self, limit: int):
+        self.cursor.limit(limit)
+
+    def skip(self, skip: int):
+        self.cursor.skip(skip)
+
+    def sort(self, *fields: str):
+        field_list = [
+            (f, pymongo.ASCENDING)
+            if not f.startswith('-')
+            else (f[1:], pymongo.DESCENDING)
+            for f in fields
+        ]
+        self.cursor.sort(field_list) 

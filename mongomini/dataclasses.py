@@ -1,8 +1,8 @@
 from dataclasses import dataclass, asdict, fields
 from functools import lru_cache
+from typing import Callable, Iterable
 
 from motor.motor_asyncio import AsyncIOMotorDatabase, AsyncIOMotorCursor
-import pymongo
 
 
 _COLLECTION = '__mongomini_collection__'
@@ -47,27 +47,43 @@ def _process_class(cls, db, collection_name, repr, eq, order):
 
 
 def is_documentclass(obj):
+    """
+        Returns True if the obj is a a documentclass or an instance of a
+        documentclass.
+    """
     cls = obj if isinstance(obj, type) else type(obj)
     return hasattr(cls, _COLLECTION)
 
 
 def _is_documentclass_instance(obj):
+    """
+        Returns True if the obj is an instance of a documentclass.
+    """
     return hasattr(type(obj), _COLLECTION)
 
 
-def include(*fields: str):
-    def include_dict_factory(iterable):
+def include(*fields: str) -> Callable[[Iterable], dict]:
+    """
+        Returns a dict_factory that will include the fields.
+    """
+    def include_dict_factory(iterable: Iterable) -> dict:
         return {k: v for k, v in iterable if k in fields}
     return include_dict_factory
 
 
-def exclude(*fields: str):
-    def exclude_dict_factory(iterable):
+def exclude(*fields: str) -> Callable[[Iterable], dict]:
+    """
+        Returns a dict_factory that will exclude the fields.
+    """
+    def exclude_dict_factory(iterable: Iterable) -> dict:
         return {k: v for k, v in iterable if k not in fields}
     return exclude_dict_factory
 
 
 async def insert_one(obj, /):
+    """
+        Insert an instance of a documentclass into its collection.
+    """
     if not _is_documentclass_instance(obj):
         raise TypeError("Must be called with a documentclass instance.")
 
@@ -82,6 +98,9 @@ async def insert_one(obj, /):
 
 
 async def update_one(obj, /, *fields):
+    """
+        Update an instance of a documentclass.
+    """
     if not _is_documentclass_instance(obj):
         raise TypeError("Must be called with a documentclass instance.")
 
@@ -92,6 +111,9 @@ async def update_one(obj, /, *fields):
 
 
 async def delete_one(obj, /):
+    """
+        Delete an instance of a documentclass from the Collection.
+    """
     if not _is_documentclass_instance(obj):
         raise TypeError("Must be called with a documentclass instance.")
 
@@ -100,6 +122,9 @@ async def delete_one(obj, /):
 
 
 async def find_one(cls, query):
+    """
+        Return a single instance that matches the query on the documentclass or None.
+    """
     if not is_documentclass(cls):
         raise TypeError("Must be called with a documentclass type or instance.")
 
@@ -107,12 +132,16 @@ async def find_one(cls, query):
     return await collection.find_one(query)
 
 
-def find(cls, query):
+def find(cls, query) -> AsyncIOMotorCursor:
+    """
+        Performs a query on the documentclass.
+        Returns a DocumentCursor.
+    """
     if not is_documentclass(cls):
         raise TypeError("Must be called with a documentclass type or instance.")
+
     collection = getattr(cls, _COLLECTION)
-    cursor = collection.find(filter=query)
-    return DocumentCursor(cls, cursor)
+    return collection.find(filter=query)
 
 
 @lru_cache
@@ -127,46 +156,20 @@ def _get_init_and_non_init_fields(cls: type) -> tuple[list[str], list[str]]:
     return init_fields, non_init_fields
 
 
-def from_document(cls, document: dict):
+def fromdict(cls, data: dict):
+    """
+        Attempts to create an instance of a documentclass from a dictionary.
+    """
     if not is_documentclass(cls):
         raise TypeError("Must be called with a documentclass type or instance.")
 
     init_fields, non_init_fields = _get_init_and_non_init_fields(cls)
-    init_kwargs = {f: document[f] for f in init_fields if f in document}
+    init_kwargs = {f: data[f] for f in init_fields if f in data}
     obj = cls(**init_kwargs)
 
     for field in non_init_fields:
-        if field not in document:
+        if field not in data:
             continue
-        setattr(obj, field, document[field])
+        setattr(obj, field, data[field])
 
     return obj
-
-
-@dataclass(eq=False, slots=True, frozen=True)
-class DocumentCursor:
-
-    document_class: type
-    cursor: AsyncIOMotorCursor
-
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        document = await anext(self.cursor)
-        return from_document(self.document_class, document)
-
-    def limit(self, limit: int):
-        self.cursor.limit(limit)
-
-    def skip(self, skip: int):
-        self.cursor.skip(skip)
-
-    def sort(self, *fields: str):
-        field_list = [
-            (f, pymongo.ASCENDING)
-            if not f.startswith('-')
-            else (f[1:], pymongo.DESCENDING)
-            for f in fields
-        ]
-        self.cursor.sort(field_list)
